@@ -18,6 +18,10 @@ const app = express();
 // Middleware
 app.use(express.json());
 
+// Routes
+const authRoutes = require('./src/routes/auth.routes');
+app.use('/api/auth', authRoutes);
+
 // Health check route
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'Server is running' });

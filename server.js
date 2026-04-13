@@ -20,7 +20,9 @@ app.use(express.json());
 
 // Routes
 const authRoutes = require('./src/routes/auth.routes');
+const doctorRoutes = require('./src/routes/doctor.routes');
 app.use('/api/auth', authRoutes);
+app.use('/api/doctors', doctorRoutes);
 
 // Health check route
 app.get('/health', (req, res) => {

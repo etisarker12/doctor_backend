@@ -1,5 +1,12 @@
 const User = require('../models/User');
-const { registerSchema, loginSchema } = require('../validators/auth.validator');
+const { registerSchema, loginSchema, updateProfileSchema } = require('../validators/auth.validator');
+const jwt = require('jsonwebtoken');
+
+const generateToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: '30d',
+  });
+};
 
 // @desc    Register a new user
 // @route   POST /api/auth/register
@@ -91,12 +98,47 @@ const login = async (req, res) => {
   }
 };
 
-// Generate JWT Token
-const jwt = require('jsonwebtoken');
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: '30d',
-  });
+// @desc    Get current user profile
+// @route   GET /api/users/profile
+// @access  Patient
+const getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('-password');
+    res.json({ user });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error fetching profile' });
+  }
 };
 
-module.exports = { register, login };
+// @desc    Update user profile
+// @route   PATCH /api/users/profile
+// @access  Patient
+const updateProfile = async (req, res) => {
+  try {
+    // Validate input
+    const { error } = updateProfileSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ message: error.details[0].message });
+    }
+
+    const updateData = {};
+    if (req.body.name) {
+      updateData.name = req.body.name;
+    }
+    if (req.body.password) {
+      updateData.password = req.body.password;
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    res.json({ message: 'Profile updated successfully', user });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error updating profile' });
+  }
+};
+
+module.exports = { register, login, getProfile, updateProfile };

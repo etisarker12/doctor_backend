@@ -1,6 +1,5 @@
 const Joi = require('joi');
 
-// Register validation schema
 const registerSchema = Joi.object({
   name: Joi.string().trim().min(1).required().messages({
     'string.empty': 'Name is required',
@@ -19,7 +18,6 @@ const registerSchema = Joi.object({
   })
 });
 
-// Login validation schema
 const loginSchema = Joi.object({
   email: Joi.string().email().required().messages({
     'string.email': 'Please provide a valid email',
@@ -30,4 +28,15 @@ const loginSchema = Joi.object({
   })
 });
 
-module.exports = { registerSchema, loginSchema };
+const updateProfileSchema = Joi.object({
+  name: Joi.string().trim().min(1).optional().messages({
+    'string.empty': 'Name must not be empty'
+  }),
+  password: Joi.string().min(6).optional().messages({
+    'string.min': 'Password must be at least 6 characters long'
+  })
+}).min(1).messages({
+  'object.min': 'At least one field must be provided for update'
+});
+
+module.exports = { registerSchema, loginSchema, updateProfileSchema };

@@ -18,6 +18,9 @@ const app = express();
 // Middleware
 app.use(express.json());
 
+// Error handler middleware (must be after routes)
+const errorHandler = require('./src/utils/errorHandler');
+
 // Routes
 const authRoutes = require('./src/routes/auth.routes');
 const doctorRoutes = require('./src/routes/doctor.routes');
@@ -33,6 +36,9 @@ app.use('/api/admin', adminRoutes);
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'Server is running' });
 });
+
+// Global error handler (must be after all routes)
+app.use(errorHandler);
 
 // Connect to DB and start server
 connectDB().then(() => {

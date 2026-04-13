@@ -1,10 +1,30 @@
-// Global error handler middleware stub
+const ApiError = require('./ApiError');
+
 const errorHandler = (err, req, res, next) => {
-  // TODO: Implement proper error handling in later phases
-  console.error(err.stack);
-  res.status(500).json({
+  let statusCode = 500;
+  let message = 'Internal Server Error';
+
+  if (err instanceof ApiError) {
+    statusCode = err.statusCode;
+    message = err.message;
+  } else if (err.name === 'ValidationError') {
+    statusCode = 400;
+    message = err.message || 'Validation Error';
+  } else if (err.name === 'CastError') {
+    statusCode = 400;
+    message = 'Invalid ID format';
+  } else if (err.code === 11000) {
+    statusCode = 409;
+    message = 'Duplicate field value entered';
+  }
+
+  console.error(`[${new Date().toISOString()}] ${statusCode} - ${message}`);
+  if (err.stack) console.error(err.stack);
+
+  res.status(statusCode).json({
     success: false,
-    message: 'Internal Server Error'
+    statusCode,
+    message,
   });
 };
 

@@ -85,6 +85,112 @@ const getMyAppointments = async (req, res) => {
 // @desc    Get all appointments (admin)
 // @route   GET /api/appointments
 // @access  Admin
+const getAppointmentById = async (req, res) => {
+  try {
+    const appointment = await Appointment.findById(req.params.id)
+      .populate('doctor', 'name specialization bio')
+      .populate('patient', 'name email');
+
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found' });
+    }
+
+    if (req.user.role !== 'admin' && appointment.patient._id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Forbidden: Access denied' });
+    }
+
+    res.json({ appointment });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error fetching appointment' });
+  }
+};
+
+const isAppointmentInFuture = (appointmentDate) => {
+  const todayUtc = new Date(Date.UTC(
+    new Date().getUTCFullYear(),
+    new Date().getUTCMonth(),
+    new Date().getUTCDate()
+  ));
+  return appointmentDate >= todayUtc;
+};
+
+const confirmAppointment = async (req, res) => {
+  try {
+    const appointment = await Appointment.findById(req.params.id);
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found' });
+    }
+
+    if (appointment.status === 'cancelled') {
+      return res.status(400).json({ message: 'Cannot confirm a cancelled appointment' });
+    }
+
+    if (appointment.status === 'completed') {
+      return res.status(400).json({ message: 'Appointment is already completed' });
+    }
+
+    appointment.status = 'confirmed';
+    await appointment.save();
+
+    res.json({ message: 'Appointment confirmed', appointment });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error confirming appointment' });
+  }
+};
+
+const cancelAppointment = async (req, res) => {
+  try {
+    const appointment = await Appointment.findById(req.params.id);
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found' });
+    }
+
+    const isOwner = appointment.patient.toString() === req.user._id.toString();
+    if (req.user.role !== 'admin' && !isOwner) {
+      return res.status(403).json({ message: 'Forbidden: Access denied' });
+    }
+
+    if (!isAppointmentInFuture(appointment.appointmentDate)) {
+      return res.status(400).json({ message: 'Cannot cancel an appointment after the appointment date has passed' });
+    }
+
+    if (appointment.status === 'cancelled') {
+      return res.status(400).json({ message: 'Appointment is already cancelled' });
+    }
+
+    appointment.status = 'cancelled';
+    await appointment.save();
+
+    res.json({ message: 'Appointment cancelled', appointment });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error cancelling appointment' });
+  }
+};
+
+const completeAppointment = async (req, res) => {
+  try {
+    const appointment = await Appointment.findById(req.params.id);
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found' });
+    }
+
+    if (appointment.status === 'cancelled') {
+      return res.status(400).json({ message: 'Cannot complete a cancelled appointment' });
+    }
+
+    if (appointment.status === 'completed') {
+      return res.status(400).json({ message: 'Appointment is already completed' });
+    }
+
+    appointment.status = 'completed';
+    await appointment.save();
+
+    res.json({ message: 'Appointment marked as completed', appointment });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error completing appointment' });
+  }
+};
+
 const getAllAppointments = async (req, res) => {
   try {
     const appointments = await Appointment.find()
@@ -102,4 +208,8 @@ module.exports = {
   createAppointment,
   getMyAppointments,
   getAllAppointments,
+  getAppointmentById,
+  confirmAppointment,
+  cancelAppointment,
+  completeAppointment,
 };

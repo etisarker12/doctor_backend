@@ -3,6 +3,10 @@ const {
   createAppointment,
   getMyAppointments,
   getAllAppointments,
+  getAppointmentById,
+  confirmAppointment,
+  cancelAppointment,
+  completeAppointment,
 } = require('../controllers/appointment.controller');
 const { protect, restrictTo } = require('../middleware/auth');
 

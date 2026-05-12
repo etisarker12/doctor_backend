@@ -14,23 +14,31 @@ const generateToken = (id) => {
 const register = async (req, res) => {
   try {
     // Validate input
-    const { error } = registerSchema.validate(req.body);
+    const { error, value } = registerSchema.validate(req.body);
     if (error) {
-      return res.status(400).json({ message: error.details[0].message });
+      return res.status(400).json({ 
+        success: false,
+        message: error.details[0].message,
+        field: error.details[0].context.key
+      });
     }
 
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role } = value;
 
     // Check if user exists
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ email: email.toLowerCase() });
     if (userExists) {
-      return res.status(400).json({ message: 'User already exists' });
+      return res.status(409).json({ 
+        success: false,
+        message: 'Email already registered. Please login or use another email.',
+        field: 'email'
+      });
     }
 
     // Create user (password hashing handled by pre-save hook)
     const user = await User.create({
-      name,
-      email,
+      name: name.trim(),
+      email: email.toLowerCase(),
       password,
       role: role || 'patient'
     });
@@ -39,6 +47,8 @@ const register = async (req, res) => {
     const token = generateToken(user._id);
 
     res.status(201).json({
+      success: true,
+      message: 'Registration successful',
       token,
       user: {
         id: user._id,
@@ -48,7 +58,11 @@ const register = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ message: 'Server error during registration' });
+    console.error('Registration error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error during registration. Please try again.'
+    });
   }
 };
 
@@ -58,33 +72,49 @@ const register = async (req, res) => {
 const login = async (req, res) => {
   try {
     // Validate input
-    const { error } = loginSchema.validate(req.body);
+    const { error, value } = loginSchema.validate(req.body);
     if (error) {
-      return res.status(400).json({ message: error.details[0].message });
+      return res.status(400).json({ 
+        success: false,
+        message: error.details[0].message,
+        field: error.details[0].context.key
+      });
     }
 
-    const { email, password } = req.body;
+    const { email, password } = value;
 
     // Check for user
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid email or password'
+      });
     }
 
     // Check password
-    if (!(await user.matchPassword(password))) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+    const isPasswordValid = await user.matchPassword(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid email or password'
+      });
     }
 
     // Check if active
     if (!user.isActive) {
-      return res.status(401).json({ message: 'Account deactivated' });
+      return res.status(403).json({ 
+        success: false,
+        message: 'Your account has been deactivated. Please contact support.'
+      });
     }
 
     // Generate JWT
     const token = generateToken(user._id);
 
     res.json({
+      success: true,
+      message: 'Login successful',
       token,
       user: {
         id: user._id,
@@ -94,7 +124,11 @@ const login = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ message: 'Server error during login' });
+    console.error('Login error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error during login. Please try again.'
+    });
   }
 };
 
@@ -104,9 +138,23 @@ const login = async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select('-password');
-    res.json({ user });
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({ 
+      success: true,
+      user 
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Server error fetching profile' });
+    console.error('Get profile error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error fetching profile'
+    });
   }
 };
 
@@ -116,17 +164,21 @@ const getProfile = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     // Validate input
-    const { error } = updateProfileSchema.validate(req.body);
+    const { error, value } = updateProfileSchema.validate(req.body);
     if (error) {
-      return res.status(400).json({ message: error.details[0].message });
+      return res.status(400).json({ 
+        success: false,
+        message: error.details[0].message,
+        field: error.details[0].context.key
+      });
     }
 
     const updateData = {};
-    if (req.body.name) {
-      updateData.name = req.body.name;
+    if (value.name) {
+      updateData.name = value.name.trim();
     }
-    if (req.body.password) {
-      updateData.password = req.body.password;
+    if (value.password) {
+      updateData.password = value.password;
     }
 
     const user = await User.findByIdAndUpdate(
@@ -135,9 +187,24 @@ const updateProfile = async (req, res) => {
       { new: true, runValidators: true }
     ).select('-password');
 
-    res.json({ message: 'Profile updated successfully', user });
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({ 
+      success: true,
+      message: 'Profile updated successfully', 
+      user 
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Server error updating profile' });
+    console.error('Update profile error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error updating profile'
+    });
   }
 };
 
